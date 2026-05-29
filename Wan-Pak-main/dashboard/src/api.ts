@@ -154,6 +154,10 @@ export const getStaff = async (): Promise<Staff[]> => {
   return cache.staff ? cache.staff : req;
 };
 
+export const clearStaffCache = () => {
+  cache.staff = null;
+};
+
 export const updateStaff = async (staffId: string, data: Partial<Staff>) => {
   const response = await api.patch(`/staff/${staffId}`, data);
   cache.staff = null;

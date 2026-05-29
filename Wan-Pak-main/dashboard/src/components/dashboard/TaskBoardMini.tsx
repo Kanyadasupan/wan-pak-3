@@ -83,7 +83,7 @@ export default function TaskBoardMini({ tickets, initialTab = 'all', deptName }:
             <div className="ticket-time" style={{ minWidth: '60px', textAlign: 'right' }}>
               <span className="time-val" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                 <Clock size={12} />
-                {t.created_at ? new Date(t.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                {t.created_at ? new Date(t.created_at).toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
               </span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export default function TaskBoardMini({ tickets, initialTab = 'all', deptName }:
                   <div>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#091d35' }}>ห้อง {selectedTicket.room_number || '?'}</h3>
                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                      <Clock size={14} color="#94a3b8" /> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'} น.
+                      <Clock size={14} color="#94a3b8" /> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'} น.
                     </p>
                   </div>
                 </div>
@@ -170,30 +170,11 @@ export default function TaskBoardMini({ tickets, initialTab = 'all', deptName }:
                       </div>
                     </div>
                   )}
-                  {selectedTicket.extracted_data.notes && (
-                    <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px dashed #cbd5e1', gridColumn: '1 / -1' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หมายเหตุเพิ่มเติม</span>
-                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#334155', marginTop: '6px' }}>
-                        {selectedTicket.extracted_data.notes}
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               )}
 
-              {/* Audio Demo */}
-              <div style={{ marginTop: 'auto', background: '#f8fafc', padding: '12px 16px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ position: 'relative', width: '8px', height: '8px' }}>
-                    <div style={{ position: 'absolute', inset: 0, background: '#ef4444', borderRadius: '50%' }}></div>
-                    <div style={{ position: 'absolute', inset: -4, border: '2px solid #ef4444', borderRadius: '50%', opacity: 0.3 }}></div>
-                  </div>
-                  บันทึกเสียงลูกค้า (Voice Record)
-                </div>
-                <audio controls style={{ height: '36px', width: '100%', borderRadius: '8px' }}>
-                  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg" />
-                </audio>
-              </div>
+
 
             </div>
           </div>

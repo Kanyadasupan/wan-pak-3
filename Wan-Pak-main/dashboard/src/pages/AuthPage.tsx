@@ -4,6 +4,7 @@ import { auth, db } from '../config/firebase'; // นำเข้า auth แล
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { ConciergeBell, Mail, Lock, User, Loader2 } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -46,7 +47,13 @@ const AuthPage = () => {
           createdAt: new Date()
         });
         
-        alert('ลงทะเบียนพนักงานใหม่สำเร็จ!');
+        await Swal.fire({
+          title: 'สำเร็จ!',
+          text: 'ลงทะเบียนพนักงานใหม่สำเร็จ!',
+          icon: 'success',
+          confirmButtonColor: '#091d35',
+          confirmButtonText: 'ตกลง'
+        });
       } else {
         // 2. ขั้นตอนการเข้าสู่ระบบ
         await signInWithEmailAndPassword(auth, email, password);

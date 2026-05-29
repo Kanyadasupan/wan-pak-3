@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase'; // ตรวจสอบ Path ให้ตรงกับของคุณ
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { clearStaffCache } from '../api';
+import Swal from 'sweetalert2';
 import '../index.css';
 
 interface AddStaffFormProps {
@@ -12,9 +13,8 @@ const AddStaffForm: React.FC<AddStaffFormProps> = ({ onSuccess }) => {
   // ปรับข้อมูลให้ตรงกับฐานข้อมูลหลัก
   const [formData, setFormData] = useState({ 
     name: '', 
-    email: '', 
-    password: '', 
-    role: 'Room Service' // ตั้งค่าเริ่มต้นให้ตรงกับระบบหลัก
+    role: 'Room Service', // ตั้งค่าเริ่มต้นให้ตรงกับระบบหลัก
+    shift: 'เช้า • 06:00 - 14:00' // ค่าเริ่มต้นสำหรับกะ
   });
   const [loading, setLoading] = useState(false);
 
@@ -22,24 +22,35 @@ const AddStaffForm: React.FC<AddStaffFormProps> = ({ onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      
-      // บันทึกข้อมูลลง Firestore โดยใช้โครงสร้างฟิลด์เดียวกันกับระบบหลัก
-      await setDoc(doc(db, "staff", userCredential.user.uid), {
+      // บันทึกข้อมูลลง Firestore โดยตรง (สร้างเฉพาะ Profile พนักงาน)
+      await addDoc(collection(db, "staff"), {
         name: formData.name,
-        email: formData.email,
         role: formData.role,
-        status: 'pending', // สถานะเริ่มต้น
+        shift: formData.shift, // เพิ่มกะการทำงาน
+        status: 'pending', // สถานะเริ่มต้น (รอเข้ากะ)
         createdAt: new Date()
       });
 
-      alert('เพิ่มพนักงานสำเร็จ!');
+      await Swal.fire({
+        title: 'สำเร็จ!',
+        text: 'เพิ่มพนักงานสำเร็จ!',
+        icon: 'success',
+        confirmButtonColor: '#091d35',
+        confirmButtonText: 'ตกลง'
+      });
+      clearStaffCache();
       if (onSuccess) {
         onSuccess();
       }
     } catch (error) {
       console.error(error);
-      alert('เกิดข้อผิดพลาดในการเพิ่มพนักงาน');
+      Swal.fire({
+        title: 'ผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการเพิ่มพนักงาน',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'ตกลง'
+      });
     } finally {
       setLoading(false);
     }
@@ -60,7 +71,7 @@ const AddStaffForm: React.FC<AddStaffFormProps> = ({ onSuccess }) => {
             placeholder="เช่น สมชาย ใจดี"
             value={formData.name}
             onChange={(e) => setFormData({...formData, name: e.target.value})} 
-            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '8px', boxSizing: 'border-box' }} 
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '8px', backgroundColor: 'white', boxSizing: 'border-box' }} 
             required 
           />
         </div>
@@ -81,27 +92,17 @@ const AddStaffForm: React.FC<AddStaffFormProps> = ({ onSuccess }) => {
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '14px', fontWeight: 600, color: '#091d35' }}>อีเมล</label>
-          <input 
-            type="email" 
-            placeholder="example@hotel.com"
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})} 
-            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '8px', boxSizing: 'border-box' }} 
-            required 
-          />
-        </div>
-        
-        <div style={{ marginBottom: '32px' }}>
-          <label style={{ fontSize: '14px', fontWeight: 600, color: '#091d35' }}>รหัสผ่าน</label>
-          <input 
-            type="password" 
-            placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร"
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})} 
-            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '8px', boxSizing: 'border-box' }} 
-            required 
-          />
+          <label style={{ fontSize: '14px', fontWeight: 600, color: '#091d35' }}>กะการทำงาน (Shift)</label>
+          <select 
+            value={formData.shift}
+            onChange={(e) => setFormData({...formData, shift: e.target.value})} 
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '8px', backgroundColor: 'white', boxSizing: 'border-box' }}
+          >
+            <option value="เช้า • 06:00 - 14:00">เช้า (06:00 - 14:00)</option>
+            <option value="บ่าย • 14:00 - 22:00">บ่าย (14:00 - 22:00)</option>
+            <option value="ดึก • 22:00 - 06:00">ดึก (22:00 - 06:00)</option>
+            <option value="08:00 - 17:00">กะปกติ (08:00 - 17:00)</option>
+          </select>
         </div>
 
         <button 

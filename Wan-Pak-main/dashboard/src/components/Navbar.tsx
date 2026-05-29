@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase'; 
-import { Bell, LogOut, ChevronDown, User, Shield } from 'lucide-react';
+import { auth, db } from '../config/firebase';
+import { Bell, LogOut, ChevronDown, Shield } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<{ firstName?: string; lastName?: string; role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -18,7 +19,7 @@ const Navbar = () => {
       if (user) {
         try {
           console.log("พนักงานที่กำลังล็อกอิน UID คือ:", user.uid); // ปริ้นต์ดูใน Console เบราว์เซอร์ได้ด้วย
-          
+
           const docRef = doc(db, "Users", user.uid);
           const docSnap = await getDoc(docRef);
 
@@ -26,10 +27,10 @@ const Navbar = () => {
             setUserData(docSnap.data());
           } else {
             // 🚨 แก้ไขจุดนี้: บังคับให้แสดง UID ปัจจุบันที่หน้าจอเพื่อเอาไปเช็กใน Firebase
-            setUserData({ 
-              firstName: "ไม่พบข้อมูล UID:", 
-              lastName: user.uid, 
-              role: "ไม่มีเอกสารนี้ในคอลเลกชัน Users" 
+            setUserData({
+              firstName: "ไม่พบข้อมูล UID:",
+              lastName: user.uid,
+              role: "ไม่มีเอกสารนี้ในคอลเลกชัน Users"
             });
           }
         } catch (error) {
@@ -45,8 +46,20 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = async () => {
-    const confirmLogout = window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?");
-    if (confirmLogout) {
+    const result = await Swal.fire({
+      title: 'ออกจากระบบ',
+      text: "คุณต้องการออกจากระบบจัดการโรงแรม AURA ใช่หรือไม่?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'ใช่, ออกจากระบบ',
+      cancelButtonText: 'ยกเลิก',
+      background: '#ffffff',
+      color: '#091d35'
+    });
+
+    if (result.isConfirmed) {
       try {
         await signOut(auth);
         navigate('/signin');
@@ -104,11 +117,11 @@ const Navbar = () => {
                 {loading ? "พนักงาน" : userData?.role || "พนักงาน"}
               </span>
             </div>
-            
+
             <div className="user-avatar-circle">
               {userData?.firstName && !userData.firstName.includes('ไม่พบ') ? userData.firstName.charAt(0) : "!"}
             </div>
-            
+
             <ChevronDown size={16} className={`chevron-icon ${showDropdown ? 'rotate' : ''}`} />
           </div>
 

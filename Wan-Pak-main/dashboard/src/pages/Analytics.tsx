@@ -17,6 +17,15 @@ const Analytics = () => {
   const [topRequests, setTopRequests] = useState<{name: string, count: number}[]>([]);
   const [totalTickets, setTotalTickets] = useState<number>(0);
   const [completionRate, setCompletionRate] = useState<number>(0);
+  const [weeklyCalls, setWeeklyCalls] = useState<{day: string, calls: number, height: string}[]>([
+    { day: 'จันทร์', calls: 0, height: '0%' },
+    { day: 'อังคาร', calls: 0, height: '0%' },
+    { day: 'พุธ', calls: 0, height: '0%' },
+    { day: 'พฤหัสฯ', calls: 0, height: '0%' },
+    { day: 'ศุกร์', calls: 0, height: '0%' },
+    { day: 'เสาร์', calls: 0, height: '0%' },
+    { day: 'อาทิตย์', calls: 0, height: '0%' },
+  ]);
 
   // ฟังก์ชันดึงข้อมูลจาก API และคำนวณสถิติต่างๆ (Fetch & Calculate Analytics Data)
   const loadData = async () => {
@@ -28,17 +37,24 @@ const Analytics = () => {
       setTotalTickets(tickets.length);
       
       let totalResolutionTime = 0;
-      let resolvedCount = 0;
+      let resolvedTimeCount = 0;
+      let completedCount = 0;
       const requestCounts: Record<string, number> = {};
 
       tickets.forEach(ticket => {
+        const s = (ticket.status || '').toLowerCase();
+        const isDone = s === 'completed' || s === 'done' || s === 'เสร็จสิ้น';
+
         // Calculate resolution time
-        if (ticket.status === 'completed' || ticket.status === 'done' || ticket.status === 'เสร็จสิ้น') {
-          const created = new Date(ticket.created_at).getTime();
-          const updated = new Date(ticket.updated_at).getTime();
-          if (updated > created && (updated - created) < 86400000) { // less than 24h to avoid outliers
-            totalResolutionTime += (updated - created);
-            resolvedCount++;
+        if (isDone) {
+          completedCount++;
+          if (ticket.created_at && ticket.updated_at) {
+            const created = new Date(ticket.created_at).getTime();
+            const updated = new Date(ticket.updated_at).getTime();
+            if (updated >= created && (updated - created) < 86400000) { // less than 24h to avoid outliers
+              totalResolutionTime += (updated - created);
+              resolvedTimeCount++;
+            }
           }
         }
 
@@ -54,8 +70,8 @@ const Analytics = () => {
         }
       });
 
-      setAvgResolutionTime(resolvedCount > 0 ? Math.round(totalResolutionTime / resolvedCount / 60000) : 0);
-      setCompletionRate(tickets.length > 0 ? Math.round((resolvedCount / tickets.length) * 100) : 0);
+      setAvgResolutionTime(resolvedTimeCount > 0 ? Math.round(totalResolutionTime / resolvedTimeCount / 60000) : 0);
+      setCompletionRate(tickets.length > 0 ? Math.round((completedCount / tickets.length) * 100) : 0);
 
       const sortedRequests = Object.entries(requestCounts)
         .sort((a, b) => b[1] - a[1])
@@ -63,6 +79,38 @@ const Analytics = () => {
         .map(([name, count]) => ({ name, count }));
       
       setTopRequests(sortedRequests);
+
+      // คำนวณปริมาณสายเรียกเข้าแยกตามวันในสัปดาห์ปัจจุบัน
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday
+      const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - distanceToMonday);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const dayCounts = [0, 0, 0, 0, 0, 0, 0]; // Mon, Tue, Wed, Thu, Fri, Sat, Sun
+      tickets.forEach(ticket => {
+        if (ticket.created_at) {
+          const tDate = new Date(ticket.created_at);
+          if (tDate >= startOfWeek) {
+            const d = tDate.getDay();
+            const mappedDay = d === 0 ? 6 : d - 1; // Map Sunday (0) to 6, Monday (1) to 0
+            dayCounts[mappedDay]++;
+          }
+        }
+      });
+
+      const maxCalls = Math.max(...dayCounts, 1); // ป้องกันการหารด้วยศูนย์
+      const newWeeklyCalls = [
+        { day: 'จันทร์', calls: dayCounts[0], height: `${Math.round((dayCounts[0] / maxCalls) * 100)}%` },
+        { day: 'อังคาร', calls: dayCounts[1], height: `${Math.round((dayCounts[1] / maxCalls) * 100)}%` },
+        { day: 'พุธ', calls: dayCounts[2], height: `${Math.round((dayCounts[2] / maxCalls) * 100)}%` },
+        { day: 'พฤหัสฯ', calls: dayCounts[3], height: `${Math.round((dayCounts[3] / maxCalls) * 100)}%` },
+        { day: 'ศุกร์', calls: dayCounts[4], height: `${Math.round((dayCounts[4] / maxCalls) * 100)}%` },
+        { day: 'เสาร์', calls: dayCounts[5], height: `${Math.round((dayCounts[5] / maxCalls) * 100)}%` },
+        { day: 'อาทิตย์', calls: dayCounts[6], height: `${Math.round((dayCounts[6] / maxCalls) * 100)}%` },
+      ];
+      setWeeklyCalls(newWeeklyCalls);
     } catch (e) {
       console.error(e);
     }
@@ -80,16 +128,7 @@ const Analytics = () => {
     };
   }, []);
 
-  // ข้อมูลจำลองสำหรับกราฟแท่ง (Mock Data for charts)
-  const weeklyCalls = [
-    { day: 'จันทร์', calls: 45, height: '40%' },
-    { day: 'อังคาร', calls: 52, height: '50%' },
-    { day: 'พุธ', calls: 38, height: '35%' },
-    { day: 'พฤหัสฯ', calls: 65, height: '70%' },
-    { day: 'ศุกร์', calls: 80, height: '85%' },
-    { day: 'เสาร์', calls: 95, height: '100%' },
-    { day: 'อาทิตย์', calls: 85, height: '90%' },
-  ];
+
 
   return (
     <div>

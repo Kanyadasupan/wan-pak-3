@@ -219,6 +219,16 @@ h6,
   box-shadow: 0 0 0 4px rgba(10, 25, 47, 0.08);
 }
 
+/* Fix for Chrome Autofill background color */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    border-radius: 12px;
+}
+
 /* Dashboard Layout */
 .dashboard-container {
   display: flex;
@@ -339,33 +349,55 @@ h6,
   gap: 16px;
 }
 
+.profile-clickable-wrapper {
+  transition: all 0.2s ease;
+}
+
+.profile-clickable-wrapper:hover {
+  background-color: #f1f5f9;
+}
+
+.profile-clickable-wrapper:active {
+  transform: scale(0.98);
+}
+
 .user-info {
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .user-name {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--primary-navy);
   font-size: 0.95rem;
+  letter-spacing: -0.01em;
 }
 
 .user-role {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
+  color: var(--accent-yellow-hover);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: -2px;
 }
 
 .avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background-color: var(--primary-navy-light);
+  background: linear-gradient(135deg, var(--primary-navy-light) 0%, var(--primary-navy) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-white);
-  font-weight: 600;
-  font-size: 1rem;
-  box-shadow: var(--shadow-sm);
+  color: var(--accent-yellow);
+  font-weight: 700;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 12px rgba(9, 29, 53, 0.15);
+  border: 1.5px solid rgba(201, 159, 71, 0.4);
+  text-transform: uppercase;
 }
 
 .empty-state {

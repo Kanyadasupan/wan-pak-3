@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase'; // ตรวจสอบ Path ให้ตรงกับของคุณ
+import Swal from 'sweetalert2';
 import '../index.css';
 
 const SignUp = () => {
@@ -23,11 +24,23 @@ const SignUp = () => {
         createdAt: new Date()
       });
 
-      alert('สมัครสมาชิกสำเร็จ!');
+      await Swal.fire({
+        title: 'สำเร็จ!',
+        text: 'สมัครสมาชิกสำเร็จ!',
+        icon: 'success',
+        confirmButtonColor: '#091d35',
+        confirmButtonText: 'ตกลง'
+      });
       navigate('/'); // เปลี่ยนหน้าไปที่หน้าหลักหลังสมัครเสร็จ
     } catch (error) {
       console.error(error);
-      alert('เกิดข้อผิดพลาดในการสมัครสมาชิก');
+      Swal.fire({
+        title: 'ผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการสมัครสมาชิก',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'ตกลง'
+      });
     }
   };
 

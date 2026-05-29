@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Edit2, Save, X, Check, UserPlus, UserCheck, Trash2 } from 'lucide-react';
 import { getStaff, updateStaff, deleteStaff, type Staff } from '../api';
 import AddStaffForm from '../components/AddStaffForm';
+import Swal from 'sweetalert2';
 
 // ข้อมูลกะการทำงาน (Shift Options)
 const shifts = [
@@ -38,6 +39,7 @@ const StaffDuty = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Staff>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('ทั้งหมด');
 
   // ฟังก์ชันดึงข้อมูลพนักงานทั้งหมดจาก Backend API (Fetch Staff Data)
   const loadStaff = async () => {
@@ -78,13 +80,24 @@ const StaffDuty = () => {
 
   // ฟังก์ชันลบพนักงานออกจากระบบ (Delete Staff)
   const handleDelete = async (id: string) => {
-    if (!window.confirm('คุณต้องการลบพนักงานคนนี้ใช่หรือไม่?')) return;
+    const result = await Swal.fire({
+      title: 'ลบข้อมูลพนักงาน',
+      text: 'คุณต้องการลบพนักงานคนนี้ใช่หรือไม่?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'ใช่, ลบเลย',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     try {
       await deleteStaff(id);
       setStaffList(staffList.filter(s => s.id !== id));
+      Swal.fire({ title: 'สำเร็จ!', text: 'ลบข้อมูลเรียบร้อยแล้ว', icon: 'success', confirmButtonColor: '#091d35' });
     } catch (e) {
       console.error(e);
-      alert('เกิดข้อผิดพลาดในการลบพนักงาน');
+      Swal.fire({ title: 'ผิดพลาด!', text: 'เกิดข้อผิดพลาดในการลบพนักงาน', icon: 'error', confirmButtonColor: '#ef4444' });
     }
   };
 
@@ -103,6 +116,8 @@ const StaffDuty = () => {
       console.error(e);
     }
   };
+
+  const allRoles = ['ทั้งหมด', ...Array.from(new Set(staffList.map(s => s.role || 'แผนกอื่นๆ'))).sort()];
 
   return (
     <div>
@@ -170,8 +185,38 @@ const StaffDuty = () => {
           </div>
         </div>
 
+        {/* ตัวกรองแผนก (Department Filter) */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '8px' }}>
+          {allRoles.map(role => (
+            <button
+              key={role}
+              onClick={() => setSelectedRole(role)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: 'none',
+                background: selectedRole === role ? '#091d35' : '#f1f5f9',
+                color: selectedRole === role ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                boxShadow: selectedRole === role ? '0 4px 12px rgba(9, 29, 53, 0.15)' : 'none'
+              }}
+              onMouseEnter={(e) => { if (selectedRole !== role) e.currentTarget.style.background = '#e2e8f0' }}
+              onMouseLeave={(e) => { if (selectedRole !== role) e.currentTarget.style.background = '#f1f5f9' }}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
+
+        {/* รายชื่อพนักงาน */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-          {staffList.map((staff) => (
+          {staffList
+            .filter(staff => selectedRole === 'ทั้งหมด' || (staff.role || 'แผนกอื่นๆ') === selectedRole)
+            .map((staff) => (
             <div key={staff.id} style={{ 
               display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative',
               background: '#ffffff', border: '1px solid #f1f5f9', borderRadius: '16px',

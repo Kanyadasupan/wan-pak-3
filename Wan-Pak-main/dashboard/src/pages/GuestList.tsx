@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, X, Search, LogOut, History, QrCode } from 'lucide-react';
+import { Users, Plus, X, Search, LogOut, History} from 'lucide-react';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { getGuests, getGuestRingQr, type Guest } from '../api';
+import { getGuests, type Guest } from '../api';
+import Swal from 'sweetalert2';
 
 const GuestList = () => {
-  // ส่วนจัดการ State สำหรับเก็บรายชื่อแขกและสถานะการโหลด QR Code
+  // ส่วนจัดการ State สำหรับเก็บรายชื่อแขก
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [qrLoadingRoom, setQrLoadingRoom] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
 
@@ -26,7 +26,7 @@ const GuestList = () => {
   const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGuest.room_number || !newGuest.guest_name) {
-      alert("กรุณากรอกเลขห้องและชื่อลูกค้า");
+      Swal.fire({ title: 'ข้อมูลไม่ครบ', text: 'กรุณากรอกเลขห้องและชื่อลูกค้า', icon: 'warning', confirmButtonColor: '#091d35' });
       return;
     }
     setIsSubmitting(true);
@@ -34,7 +34,7 @@ const GuestList = () => {
       await setDoc(doc(db, "guests", newGuest.room_number), {
         ...newGuest
       });
-      alert("เพิ่มข้อมูลลูกค้าเรียบร้อยแล้ว");
+      Swal.fire({ title: 'สำเร็จ!', text: 'เพิ่มข้อมูลลูกค้าเรียบร้อยแล้ว', icon: 'success', confirmButtonColor: '#091d35' });
       setIsAddModalOpen(false);
       setNewGuest({
         room_number: '',
@@ -46,24 +46,34 @@ const GuestList = () => {
       loadGuests(); // ดึงข้อมูลใหม่มาแสดง
     } catch (error) {
       console.error("Error adding guest: ", error);
-      alert("เกิดข้อผิดพลาดในการเพิ่มลูกค้า");
+      Swal.fire({ title: 'ผิดพลาด!', text: 'เกิดข้อผิดพลาดในการเพิ่มลูกค้า', icon: 'error', confirmButtonColor: '#ef4444' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleCheckOut = async (guest: Guest) => {
-    if (!window.confirm(`ยืนยันการเช็คเอาท์ห้อง ${guest.room_number}?`)) return;
+    const result = await Swal.fire({
+      title: 'ยืนยันการเช็คเอาท์',
+      text: `ยืนยันการเช็คเอาท์ห้อง ${guest.room_number}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#091d35',
+      cancelButtonColor: '#ef4444',
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     try {
       await updateDoc(doc(db, "guests", guest.room_number), {
         status: 'checked-out',
         check_out_date: new Date().toISOString().split('T')[0]
       });
-      alert(`ห้อง ${guest.room_number} เช็คเอาท์เรียบร้อย`);
       loadGuests();
+      Swal.fire({ title: 'สำเร็จ!', text: 'เช็คเอาท์สำเร็จแล้ว', icon: 'success', confirmButtonColor: '#091d35' });
     } catch (error) {
       console.error(error);
-      alert("เกิดข้อผิดพลาดในการเช็คเอาท์");
+      Swal.fire({ title: 'ผิดพลาด!', text: 'เกิดข้อผิดพลาดในการเช็คเอาท์', icon: 'error', confirmButtonColor: '#ef4444' });
     }
   };
 
@@ -89,20 +99,6 @@ const GuestList = () => {
       clearInterval(interval);
     };
   }, []);
-
-  // ฟังก์ชันจัดการเมื่อกดปุ่ม "QR Ring" เพื่อแสดง QR Code สำหรับแขกห้องนั้น (Handle Show QR)
-  const handleShowQr = async (guest: Guest) => {
-    setQrLoadingRoom(guest.room_number);
-    try {
-      const data = await getGuestRingQr(guest.room_number);
-      window.open(data.qr_url, '_blank');
-    } catch (error) {
-      console.error(error);
-      alert(`เปิด QR ไม่สำเร็จสำหรับห้อง ${guest.room_number}`);
-    } finally {
-      setQrLoadingRoom(null);
-    }
-  };
 
   const filteredGuests = guests.filter(g => {
     // กรองตาม Tab
@@ -197,7 +193,6 @@ const GuestList = () => {
                 <th style={{ padding: '16px', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>เบอร์โทร</th>
                 <th style={{ padding: '16px', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>สถานะ</th>
                 <th style={{ padding: '16px', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>วันที่เช็คเอาท์</th>
-                <th style={{ padding: '16px', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>QR ลูกค้า</th>
                 <th style={{ padding: '16px', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'right' }}>จัดการ (Action)</th>
               </tr>
             </thead>
@@ -223,24 +218,6 @@ const GuestList = () => {
                     </span>
                   </td>
                   <td style={{ padding: '16px', color: '#64748b', fontSize: '14px' }}>{guest.check_out_date}</td>
-                  <td style={{ padding: '16px', textAlign: 'center' }}>
-                    <button
-                      style={{
-                        padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                        border: 'none', background: '#091d35', color: '#c99f47', cursor: 'pointer',
-                        opacity: qrLoadingRoom === guest.room_number ? 0.7 : 1, transition: 'all 0.2s',
-                        boxShadow: '0 4px 12px rgba(9, 29, 53, 0.15)',
-                        display: 'inline-flex', alignItems: 'center', gap: '6px'
-                      }}
-                      onMouseEnter={(e) => { if (qrLoadingRoom !== guest.room_number) e.currentTarget.style.transform = 'translateY(-2px)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'none' }}
-                      onClick={() => handleShowQr(guest)}
-                      disabled={qrLoadingRoom === guest.room_number}
-                    >
-                      <QrCode size={14} />
-                      {qrLoadingRoom === guest.room_number ? 'กำลังสร้าง...' : 'QR'}
-                    </button>
-                  </td>
                   <td style={{ padding: '16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                       {guest.status === 'checked-in' ? (

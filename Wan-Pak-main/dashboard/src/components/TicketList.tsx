@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getTickets, type Ticket } from '../api';
-import { Clock, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, RefreshCw, AlertCircle, Search } from 'lucide-react';
 
 const TicketList = () => {
   const location = useLocation();
@@ -11,7 +11,9 @@ const TicketList = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedDept, setSelectedDept] = useState<'all' | 'maintenance' | 'housekeeping' | 'room-service' | 'other'>(defaultDept);
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'doing' | 'done'>('all');
-
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'date' | 'month'>('all');
+  const [filterDateValue, setFilterDateValue] = useState<string>('');
   const fetchTickets = useCallback(async () => {
     try {
       const data = await getTickets();
@@ -70,7 +72,7 @@ const TicketList = () => {
     if (!isoString) return '-';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '-';
-    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const getTicketIntent = (t: Ticket) => (t.intent || t.extracted_data?.intent || '').toLowerCase();
@@ -98,7 +100,33 @@ const TicketList = () => {
     if (selectedStatus === 'doing') statusMatch = isDoing;
     if (selectedStatus === 'done') statusMatch = isDone;
 
-    return deptMatch && statusMatch;
+    // Check Search Term
+    let searchMatch = true;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const room = (t.room_number || '').toLowerCase();
+      const items = (t.extracted_data?.items || '').toLowerCase();
+      const notes = (t.extracted_data?.notes || '').toLowerCase();
+      const intent = getTicketIntent(t);
+      searchMatch = room.includes(term) || items.includes(term) || notes.includes(term) || intent.includes(term);
+    }
+
+    // Check Date
+    let dateMatch = true;
+    if (dateFilterType !== 'all' && filterDateValue && t.created_at) {
+      const ticketDate = new Date(t.created_at);
+      if (!isNaN(ticketDate.getTime())) {
+        const tzOffset = ticketDate.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(ticketDate.getTime() - tzOffset).toISOString();
+        if (dateFilterType === 'date') {
+          dateMatch = localISOTime.split('T')[0] === filterDateValue;
+        } else if (dateFilterType === 'month') {
+          dateMatch = localISOTime.slice(0, 7) === filterDateValue;
+        }
+      }
+    }
+
+    return deptMatch && statusMatch && searchMatch && dateMatch;
   });
 
   return (
@@ -132,6 +160,18 @@ const TicketList = () => {
 
       {/* Filters Container */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+
+        {/* Search Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px 16px', width: '100%', maxWidth: '400px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <Search size={18} color="#94a3b8" style={{ marginRight: '12px' }} />
+          <input
+            type="text"
+            placeholder="ค้นหาห้อง, รายการแจ้งซ่อม, รูมเซอร์วิส..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ border: 'none', outline: 'none', width: '100%', fontSize: '14px', color: '#091d35', background: 'transparent' }}
+          />
+        </div>
 
         {/* Department Filters */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -186,7 +226,7 @@ const TicketList = () => {
                 fontSize: '13px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                boxShadow: selectedStatus === status.id ? `0 4px 12px ${status.color}40` : 'none'
+                boxShadow: selectedStatus === status.id ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
               }}
             >
               {status.label}
@@ -194,6 +234,40 @@ const TicketList = () => {
           ))}
         </div>
 
+        {/* Date Filters */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', marginRight: '8px' }}>เวลา:</span>
+          <select 
+            value={dateFilterType} 
+            onChange={(e) => {
+              setDateFilterType(e.target.value as 'all' | 'date' | 'month');
+              setFilterDateValue('');
+            }}
+            style={{ padding: '6px 12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', color: '#091d35', background: 'white', cursor: 'pointer' }}
+          >
+            <option value="all">ทั้งหมด</option>
+            <option value="date">ระบุวันที่</option>
+            <option value="month">ระบุเดือน</option>
+          </select>
+
+          {dateFilterType === 'date' && (
+            <input 
+              type="date" 
+              value={filterDateValue}
+              onChange={(e) => setFilterDateValue(e.target.value)}
+              style={{ padding: '4px 12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', color: '#091d35', background: 'white' }}
+            />
+          )}
+
+          {dateFilterType === 'month' && (
+            <input 
+              type="month" 
+              value={filterDateValue}
+              onChange={(e) => setFilterDateValue(e.target.value)}
+              style={{ padding: '4px 12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', color: '#091d35', background: 'white' }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Content Area */}
@@ -281,30 +355,11 @@ const TicketList = () => {
                       </div>
                     </div>
                   )}
-                  {ticket.extracted_data.notes && (
-                    <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px dashed #cbd5e1', gridColumn: '1 / -1' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หมายเหตุเพิ่มเติม</span>
-                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#334155', marginTop: '6px' }}>
-                        {ticket.extracted_data.notes}
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               )}
 
-              {/* Audio Demo */}
-              <div style={{ marginTop: 'auto', background: '#f8fafc', padding: '12px 16px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ position: 'relative', width: '8px', height: '8px' }}>
-                    <div style={{ position: 'absolute', inset: 0, background: '#ef4444', borderRadius: '50%' }}></div>
-                    <div style={{ position: 'absolute', inset: -4, border: '2px solid #ef4444', borderRadius: '50%', opacity: 0.3 }}></div>
-                  </div>
-                  บันทึกเสียงลูกค้า (Voice Record)
-                </div>
-                <audio controls style={{ height: '36px', width: '100%', borderRadius: '8px' }}>
-                  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg" />
-                </audio>
-              </div>
+
 
             </div>
           ))}

@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/AuthPage';
 import DepartmentPage from './pages/DepartmentPage';
+import Swal from 'sweetalert2';
 
 // === นำเข้า Firebase Configuration ===
 import { auth, db } from './config/firebase'; 
@@ -76,7 +77,6 @@ const HeaderTitle = () => {
 
 function AppContent() {
   const location = useLocation();
-  const [, setTickets] = useState<Ticket[]>([]);
   const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
   const [isOpenNotification, setIsOpenNotification] = useState<boolean>(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -85,10 +85,7 @@ function AppContent() {
   const [userData, setUserData] = useState<{ firstName: string; lastName: string; role: string } | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
 
-  // ✨ เพิ่ม State และ Ref สำหรับเมนูโปรไฟล์ออกจากระบบ
-  const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const [seenTicketIds, setSeenTicketIds] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('seenTicketIds');
@@ -141,9 +138,14 @@ function AppContent() {
       const response = await axios.get('http://127.0.0.1:8000/api/tickets/');
       if (response.data.status === 'success') {
         const allTickets = response.data.tickets || [];
-        setTickets(allTickets);
+        // เรียงลำดับจากใหม่ไปเก่า (Newest to Oldest)
+        const sortedTickets = allTickets.sort((a: Ticket, b: Ticket) => {
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+        });
 
-        const pending = allTickets.filter(
+        const pending = sortedTickets.filter(
           (t: Ticket) => t.status === 'รอรับเรื่อง' || t.status === 'pending' || !t.status
         );
         setPendingTickets(pending);
@@ -177,9 +179,6 @@ function AppContent() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpenNotification(false);
       }
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -211,7 +210,19 @@ function AppContent() {
   const unreadCount = pendingTickets.filter(t => !seenTicketIds.has(t.ticket_id)).length;
 
   const handleLogout = async () => {
-    if (window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?")) {
+    const result = await Swal.fire({
+      title: 'ออกจากระบบ',
+      text: "คุณต้องการออกจากระบบใช่หรือไม่?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'ใช่, ออกจากระบบ',
+      cancelButtonText: 'ยกเลิก',
+      background: '#ffffff',
+      color: '#091d35'
+    });
+    if (result.isConfirmed) {
       await auth.signOut();
     }
   };
@@ -373,7 +384,7 @@ function AppContent() {
                                 <div style={{ fontWeight: 'bold', color: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
                                   <span>ห้อง {t.room_number}</span>
                                   <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>
-                                    {t.created_at ? new Date(t.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.' : 'เมื่อสักครู่'}
+                                    {t.created_at ? new Date(t.created_at).toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' น.' : 'เมื่อสักครู่'}
                                   </span>
                                 </div>
                                 <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '3px' }}>
@@ -394,11 +405,9 @@ function AppContent() {
 
               <div style={{ borderLeft: '1px solid var(--border-color)', height: '40px', margin: '0 8px' }}></div>
               
-              {/* 🛠️ ✨ ปรับเปลี่ยนโครงสร้างบล็อกโปรไฟล์ตรงนี้ ให้สามารถคลิกเพื่อกางหน้าต่างย่อยออกมาได้แล้วครับ */}
+              {/* บล็อกโปรไฟล์ */}
               <div 
-                ref={profileMenuRef}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', position: 'relative', padding: '4px 8px', borderRadius: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 8px', borderRadius: '8px' }}
                 className="profile-clickable-wrapper"
               >
                 <div className="user-info" style={{ textAlign: 'right', userSelect: 'none' }}>
@@ -412,38 +421,6 @@ function AppContent() {
                 <div className="avatar" style={{ userSelect: 'none' }}>
                   {userData && userData.firstName ? userData.firstName[0] : 'ส'}
                 </div>
-
-                {/* แผงเมนูย่อยป๊อปอัปที่จะเด้งลงมาเมื่อทำการคลิกเมาส์ */}
-                {showProfileMenu && (
-                  <div style={{
-                    position: 'absolute', top: '100%', right: 0, marginTop: '12px',
-                    width: '180px', backgroundColor: '#1e293b', border: '1px solid #475569',
-                    borderRadius: '10px', boxShadow: '0 15px 30px rgba(0,0,0,0.4)',
-                    overflow: 'hidden', zIndex: 99999
-                  }}>
-                    <div style={{ padding: '10px 14px', fontSize: '11px', color: '#94a3b8', borderBottom: '1px solid #334155', backgroundColor: '#0f172a' }}>
-                      บัญชีผู้ใช้งานระบบ
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // ป้องกันบั๊กการคลิกซ้อน
-                        setShowProfileMenu(false);
-                        handleLogout();
-                      }}
-                      style={{
-                        width: '100%', background: 'transparent', border: 'none',
-                        padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px',
-                        color: '#f87171', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                        textAlign: 'left', fontFamily: 'inherit', transition: 'background-color 0.15s'
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2d3748')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <LogOut size={16} />
-                      <span>ออกจากระบบ</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
             </div>
@@ -479,7 +456,7 @@ function AppContent() {
                       {selectedTicket.status || 'pending'}
                     </span>
                     <span style={{ color: '#64748b', fontSize: '13px', marginRight: '32px' }}>
-                      เวลา {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'} น.
+                      เวลา {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'} น.
                     </span>
                   </div>
 
@@ -502,15 +479,7 @@ function AppContent() {
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: '24px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.05em', marginBottom: '6px', textTransform: 'uppercase' }}>Voice Record</div>
-                    <div style={{ backgroundColor: '#f1f5f9', borderRadius: '30px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <audio controls style={{ width: '100%', height: '32px' }}>
-                        <source src="#" type="audio/mpeg" />
-                        เบราว์เซอร์ของคุณไม่รองรับการเล่นเสียง
-                      </audio>
-                    </div>
-                  </div>
+
 
                 </div>
               </div>
